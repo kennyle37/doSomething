@@ -6,7 +6,7 @@ export default class BootScene extends Phaser.Scene {
   }
 
   create() {
-    this.add.text(256, 256, 'Isekai Idle Village\n\nrepo is live.', {
+    this.add.text(256, 256, 'Idle Village\n\nrepo is live.', {
       fontSize: '20px',
       color: '#ffffff',
       align: 'center',
