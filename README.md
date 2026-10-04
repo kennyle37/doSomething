@@ -1,7 +1,6 @@
-# Isekai Idle Village
+# Idle Village
 
-Cozy isekai idle-builder. A laid-off engineer reborn with zero powers becomes
-the middle manager he always hated, delegating everything to villagers.
+Cozy idle-builder. 
 
 ## Setup
 
