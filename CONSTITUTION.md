@@ -34,6 +34,12 @@ use whichever lens fits the question.
 - **The manager is the corruption arc.** The skill tree (Delegation, Synergy,
   Thought Leadership) is the protagonist becoming what he hated. Villagers notice.
   Play it straight, never wink at the camera.
+- **He identifies as an overworked corporate slave.** Every action the reincarnated
+  protagonist takes, it's because he did this at work. Nothing more, nothing less.
+  He doesn't think of it as anything more than that. The villagers interpret
+  everything as divine omniscience. The comedy is the gap between what he sees
+  (basic corporate playbook) and what they see (miracles). Play it straight from
+  both sides, never wink.
 - **Free placement, zero consequences.** Player places buildings anywhere on the
   grid, moves them anytime, for free. Position never affects production.
 - **Anti-grind rule.** Every loop pays out inside its own timeframe. Session loops
@@ -105,13 +111,15 @@ doubt, the smaller step is the right one.
 1. **Propose** — the user proposes an idea.
 2. **Design together** — the idea gets worked in conversation. Muse maps it
    to this constitution's patterns and rules, naming the patterns per §4.
+   Run the relevant `docs/conformance.md` checklist. Write the experience goal
+   ("the player feels ___ when ___"). Unanswered items are missing decisions.
 3. **Tasks** — `specs/<step>/tasks.md`: implementation checklist plus key
    decisions, written together. **User approves before code is written.**
 4. **Build** — Muse writes the code and its tests.
-5. **Verify** — build passes, tests pass, conformance check against this
-   file, then handoff.
+5. **Play** — the user plays the build. One key question per spec, beginner's
+   mind, think aloud. Fill the playtest report (`docs/conformance.md` §4c).
+   Verdict: ship, tune numbers, or redesign (redesign loops to step 2).
+6. **Verify** — build passes, tests pass, conformance re-checked, then handoff.
+   Economy specs must include the faucet/sink worksheet per resource.
 
 Skipping the approval gate is a constitution violation.
-
-Completed specs stay in place; git history is the archive. Skipping review
-gates is a constitution violation. Amend this file by proposal.
