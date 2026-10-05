@@ -134,7 +134,7 @@ export default class VillageScene extends Phaser.Scene {
     for (const v of this.villagers) {
       this.scheduleWander(v.id, 2000 + Math.random() * 6000);
     }
-    
+
     // Manual drag handling (scene level) so we can pick the closest
     // villager in a cluster instead of just the topmost sprite.
     this.input.on('pointermove', (pointer) => {
