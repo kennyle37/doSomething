@@ -1,0 +1,14 @@
+Memao Fantasy Character Sprite Pack
+by Sleeping Robot Games
+https://sleeping-robot-games.itch.io/fantasy-character-sprite-pack
+
+Free pixel art RPG character pack. 10 unique fantasy characters,
+originally with idle, walk, run, farming, and emote animations
+in 4 directions.
+
+This split extracts per-character animation strips (48x48 cells,
+4 frames each) for game use:
+  idle_down/up/left/right, walk_down/up/left/right,
+  work_down/up/left/right (axe chop), emote_wave, emote_cheer
+
+Check the original pack's license for attribution requirements.

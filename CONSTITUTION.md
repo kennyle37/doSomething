@@ -78,9 +78,9 @@ Each pays an upfront cost once and makes every later feature cheaper.
 
 - Current art:
     - LimeZu Serene Village revamped (CC-BY 4.0 — credit required).
-    - Memao Fantasy Character Sprite Pack by Sleeping Robot Games (free; check
-      original page for attribution terms). Split into per-character animation
-      strips on 48x48 cells.
+    - Memao Fantasy Character Sprite Pack by Sleeping Robot Games (free;
+      check original page for attribution terms). Split into per-character
+      animation strips on 48x48 cells.
 - Attribution file lives at `public/assets/ATTRIBUTION.md`, updated whenever a
   pack is added.
 - Packs stay in their own subfolder under `public/assets/`. Never dump flat.
@@ -90,13 +90,16 @@ Each pays an upfront cost once and makes every later feature cheaper.
 - **48x48 cells.** Every sprite sits on the 48x48 grid. Tiles, characters,
   objects, no exceptions.
 - **One style.** Pixel art with dark outlines and a soft, desaturated palette,
-  matching the Serene Village set. No mixed styles in the same scene.
+  matching the Serene Village set. No mixed styles in the same scene: no
+  photorealistic, no vector cartoon, no second pixel style.
 - **Fantasy villagers, not modern farmers.** Characters are isekai natives in
   simple tunics and work clothes. Nothing job-specific in the base sprite;
-  role cues are overlays, not separate characters.
+  role cues (a straw hat for farmhands) are overlays, not separate characters.
 - **New packs must conform before merging.** A pack that doesn't match the grid
-  or the style doesn't go into `public/assets/` until it's converted or rejected.
-  Style fit is decided at pack-pick time, not at render time.
+  or the style doesn't go into `public/assets/` until it's converted or it's
+  rejected. Style fit is decided at pack-pick time, not at render time.
+
+## 6. Process (spec-driven)
 
 ## 6. Process
 

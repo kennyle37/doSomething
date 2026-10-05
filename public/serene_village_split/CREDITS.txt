@@ -1,0 +1,21 @@
+Serene Village Revamped - Split Assets
+=======================================
+
+Original artwork: "Serene Village Revamped" by LimeZu
+Source: https://limezu.itch.io/serenevillagerevamped
+License: Creative Commons Attribution 4.0 International (CC-BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+You must give appropriate credit to LimeZu when using these assets,
+provide a link to the license, and indicate if changes were made.
+
+What was done here:
+- The original tileset sheets were split into individual sprite files
+  (houses, trees, bushes, rocks, objects, terrain tiles, pickups).
+- Split from the 48x48 sheet (highest resolution in the pack).
+- Filenames describe the content (e.g. house_red_01.png).
+- terrain/fragments/ contains autotile edge pieces from the original
+  sheet, kept for completeness.
+- tilesets/terrain_block_48x48.png is the original terrain section
+  intact, for future autotile use.
+- animated/ contains the original animation strips (water, door, campfire).
