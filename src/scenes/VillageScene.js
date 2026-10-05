@@ -5,6 +5,7 @@ import {
   VILLAGER_SPRITES,
 } from '../game/sim/villagers.js';
 import { moveVillager } from '../game/sim/movement.js';
+import { pickWanderTarget } from '../game/sim/wandering.js';
 
 // Render concerns only. Tile size lives here, never in the grid model.
 const TILE_SIZE = 48;
@@ -12,6 +13,8 @@ const TILE_COLOR = 0x7fbf5f; // placeholder grass green
 const BACKGROUND_COLOR = '#141f14';
 const SHOW_COORDS = true; // debug overlay, not game UI
 const TAP_THRESHOLD = 10; // px, below this a drag counts as a tap
+const WALK_DIRS = ['down', 'up', 'left', 'right'];
+const WALK_MS_PER_TILE = 1500;
 
 // Compact 2D cluster offsets (px from tile center). Keeps groups cozy and
 // inside the tile instead of spreading into a row that overflows.
@@ -55,6 +58,13 @@ export default class VillageScene extends Phaser.Scene {
         `memao/${spriteKey}/idle_down.png`,
         { frameWidth: 48, frameHeight: 48 }
       );
+      for (const dir of WALK_DIRS) {
+        this.load.spritesheet(
+          `${spriteKey}_walk_${dir}`,
+          `memao/${spriteKey}/walk_${dir}.png`,
+          { frameWidth: 48, frameHeight: 48 }
+        );
+      }
     }
   }
 
@@ -74,6 +84,9 @@ export default class VillageScene extends Phaser.Scene {
     this.dropOffsets = new Map();
     // Active manual drag state, null when not dragging.
     this.dragging = null;
+    // Wander state: villager id -> tween (walking) or timer (pausing).
+    this.wanderTweens = new Map();
+    this.wanderTimers = new Map();
 
     for (const tile of this.grid.tiles) {
       const px = offsetX + tile.x * TILE_SIZE + TILE_SIZE / 2;
@@ -91,6 +104,17 @@ export default class VillageScene extends Phaser.Scene {
         frameRate: 4,
         repeat: -1,
       });
+      for (const dir of WALK_DIRS) {
+        this.anims.create({
+          key: `${spriteKey}_walk_${dir}`,
+          frames: this.anims.generateFrameNumbers(`${spriteKey}_walk_${dir}`, {
+            start: 0,
+            end: 3,
+          }),
+          frameRate: 6,
+          repeat: -1,
+        });
+      }
     }
 
     this.villagers = createInitialVillagers();
@@ -104,6 +128,12 @@ export default class VillageScene extends Phaser.Scene {
 
     this.drawVillagers();
     this.setupTileTap();
+
+    // Kick off wandering with natural-feeling random delays (2-8s).
+    // They shouldn't all start walking the moment the game loads.
+    for (const v of this.villagers) {
+      this.scheduleWander(v.id, 2000 + Math.random() * 6000);
+    }
 
     // Manual drag handling (scene level) so we can pick the closest
     // villager in a cluster instead of just the topmost sprite.
@@ -182,6 +212,7 @@ export default class VillageScene extends Phaser.Scene {
     sprite.on('pointerdown', (pointer) => {
       const pickedId = this.pickVillagerAt(pointer);
       if (pickedId == null) return;
+      this.cancelWander(pickedId);
       this.dragging = {
         villagerId: pickedId,
         downX: pointer.downX,
@@ -220,6 +251,117 @@ export default class VillageScene extends Phaser.Scene {
     return best.getData('villagerId');
   }
 
+  // Schedule a wander to start after `delay` ms.
+  scheduleWander(villagerId, delay) {
+    if (this.wanderTimers.has(villagerId)) return;
+    const timer = this.time.delayedCall(delay, () => {
+      this.wanderTimers.delete(villagerId);
+      this.startWander(villagerId);
+    });
+    this.wanderTimers.set(villagerId, timer);
+  }
+
+  // Pick a random free tile and walk there axis-aligned (longer axis first),
+  // like classic RPG movement. On arrival, update the data model and
+  // schedule the next wander. Cooldown scales with distance walked.
+  startWander(villagerId) {
+    if (this.dragging) return;
+    const villager = this.villagers.find((v) => v.id === villagerId);
+    if (!villager) return;
+    const sprite = this.villagerSprites.get(villagerId);
+    if (!sprite) return;
+
+    const target = pickWanderTarget(
+      villager.tileX,
+      villager.tileY,
+      this.grid.width,
+      this.grid.height,
+      this.blockedTiles
+    );
+    if (!target) return;
+
+    const toX = this.originX + target.x * TILE_SIZE + TILE_SIZE / 2;
+    const toY = this.originY + (target.y + 1) * TILE_SIZE;
+    const dx = toX - sprite.x;
+    const dy = toY - sprite.y;
+    const totalDistTiles = Math.sqrt(dx * dx + dy * dy) / TILE_SIZE;
+
+    // Build axis-aligned phases, longer axis first.
+    const phases = [];
+    const xPhase =
+      Math.abs(dx) >= 1
+        ? { axis: 'x', to: toX, dir: dx > 0 ? 'right' : 'left' }
+        : null;
+    const yPhase =
+      Math.abs(dy) >= 1
+        ? { axis: 'y', to: toY, dir: dy > 0 ? 'down' : 'up' }
+        : null;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      if (xPhase) phases.push(xPhase);
+      if (yPhase) phases.push(yPhase);
+    } else {
+      if (yPhase) phases.push(yPhase);
+      if (xPhase) phases.push(xPhase);
+    }
+
+    const finish = () => {
+      this.wanderTweens.delete(villagerId);
+      const idx = this.villagers.findIndex((v) => v.id === villagerId);
+      if (idx !== -1) {
+        this.villagers[idx] = {
+          ...this.villagers[idx],
+          tileX: target.x,
+          tileY: target.y,
+        };
+      }
+      sprite.play(`${villager.spriteKey}_idle`);
+      this.layoutVillagers();
+      // Longer walks earn longer rests.
+      this.scheduleWander(villagerId, 5000 + totalDistTiles * 3000);
+    };
+
+    if (phases.length === 0) {
+      finish();
+      return;
+    }
+
+    const runPhase = (i) => {
+      if (i >= phases.length) {
+        finish();
+        return;
+      }
+      const phase = phases[i];
+      sprite.play(`${villager.spriteKey}_walk_${phase.dir}`);
+      const dist = Math.abs(
+        phase.to - (phase.axis === 'x' ? sprite.x : sprite.y)
+      );
+      const tween = this.tweens.add({
+        targets: sprite,
+        [phase.axis]: phase.to,
+        duration: Math.max(200, (dist / TILE_SIZE) * WALK_MS_PER_TILE),
+        ease: 'Linear',
+        onComplete: () => runPhase(i + 1),
+      });
+      this.wanderTweens.set(villagerId, tween);
+    };
+
+    runPhase(0);
+  }
+
+  // Stop any in-progress wander (tween or scheduled) for a villager.
+  cancelWander(villagerId) {
+    const tween = this.wanderTweens.get(villagerId);
+    if (tween) {
+      tween.stop();
+      this.wanderTweens.delete(villagerId);
+    }
+    const timer = this.wanderTimers.get(villagerId);
+    if (timer) {
+      timer.remove();
+      this.wanderTimers.delete(villagerId);
+    }
+  }
+
   // Reposition all sprites from current villager data. Clustered villagers
   // use compact 2D offsets so they stay cozy and inside the tile.
   // Ordered left-to-right by drop x-offset, so dropping left stays left.
@@ -237,6 +379,8 @@ export default class VillageScene extends Phaser.Scene {
       );
       const offsets = getClusterOffsets(group.length);
       group.forEach((v, i) => {
+        // Wandering villagers are positioned by their tween, not the layout.
+        if (this.wanderTweens.has(v.id)) return;
         const sprite = this.villagerSprites.get(v.id);
         const [ox, oy] = offsets[i];
         const px = this.originX + v.tileX * TILE_SIZE + TILE_SIZE / 2 + ox;
@@ -267,6 +411,8 @@ export default class VillageScene extends Phaser.Scene {
     this.villagers[idx] = moved;
     this.selectedVillager = null;
     this.layoutVillagers();
+    // Resume wandering after a beat.
+    this.scheduleWander(villagerId, 1000);
   }
 
   handleVillagerTap(villagerId) {
