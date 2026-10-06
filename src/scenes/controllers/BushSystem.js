@@ -34,6 +34,16 @@ export default class BushSystem {
     })
     .setDepth(1000); // above Y-sorted sprites
 
+    // Inline +N indicator, sits right after the counter text.
+    this.berryGainText = scene.add
+      .text(16, 16, '', {
+        fontSize: '14px',
+        color: '#7CFC00',
+        fontStyle: 'bold',
+      })
+      .setDepth(1000);
+    this._gainTimer = null;
+
     scene.time.addEvent({
       delay: CONFIG.tickMs,
       loop: true,
@@ -109,6 +119,7 @@ export default class BushSystem {
 
   // Harvest tick: villagers who've worked a full interval produce berries.
   onTick() {
+    if (!this.berryText) return; // scene not ready yet
     const scene = this.scene;
     const now = Date.now();
     const producers = forageTick(scene.villagers, now, CONFIG.tickMs);
@@ -123,6 +134,14 @@ export default class BushSystem {
     this.berries += producers.length;
     this.berryText.setText(`Berries: ${this.berries}`);
 
+    // Show +N inline next to the counter, fades after 1.5s.
+    const gainText = this.berryGainText;
+    gainText.setText(`+${producers.length}`);
+    gainText.setPosition(this.berryText.x + this.berryText.width + 8, this.berryText.y + 4);
+    gainText.setAlpha(1);
+    if (this._gainTimer) this._gainTimer.remove();
+    this._gainTimer = scene.time.delayedCall(1500, () => gainText.setText(''));
+
     // Feedback only on bushes that actually produced.
     const producedPerBush = new Map();
     for (const v of producers) {
@@ -133,11 +152,14 @@ export default class BushSystem {
       if (!sprite) continue;
       const text = scene.add
       .text(sprite.x, sprite.y - 48, `+${count}`, {
-        fontSize: '18px',
+        fontSize: '26px',
         color: '#ffff88',
         fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 4,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(1000);
       scene.tweens.add({
         targets: text,
         y: text.y - 30,
