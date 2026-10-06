@@ -124,12 +124,15 @@ export default class BushSystem {
     this.berryText.setText(`Berries: ${this.berries}`);
 
     // Feedback only on bushes that actually produced.
-    const producingBushes = new Set(producers.map((v) => v.assignedTo));
-    for (const bushId of producingBushes) {
+    const producedPerBush = new Map();
+    for (const v of producers) {
+      producedPerBush.set(v.assignedTo, (producedPerBush.get(v.assignedTo) || 0) + 1);
+    }
+    for (const [bushId, count] of producedPerBush) {
       const sprite = this.sprites.get(bushId);
       if (!sprite) continue;
       const text = scene.add
-      .text(sprite.x, sprite.y - 48, '+1', {
+      .text(sprite.x, sprite.y - 48, `+${count}`, {
         fontSize: '18px',
         color: '#ffff88',
         fontStyle: 'bold',
