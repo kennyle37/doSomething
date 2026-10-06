@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { createGrid } from '../game/sim/grid.js';
 import { createInitialVillagers, VILLAGER_SPRITES } from '../game/sim/villagers.js';
+import { CONFIG } from '../game/config.js';
 import VillagerRenderer from './controllers/VillagerRenderer.js';
 import DragManager from './controllers/DragManager.js';
 import WanderController from './controllers/WanderController.js';
@@ -116,9 +117,13 @@ export default class VillageScene extends Phaser.Scene {
     this.drag.setupInput();
     this.drag.setupTileTap();
 
-    // Kick off wandering with natural-feeling random delays (2-8s).
+    // Kick off wandering with natural-feeling random delays.
     for (const v of this.villagers) {
-      this.wander.scheduleWander(v.id, 2000 + Math.random() * 6000);
+      const { initialDelayMinMs, initialDelayMaxMs } = CONFIG.wander;
+      this.wander.scheduleWander(
+        v.id,
+        initialDelayMinMs + Math.random() * (initialDelayMaxMs - initialDelayMinMs)
+      );
     }
   }
 
@@ -128,11 +133,11 @@ export default class VillageScene extends Phaser.Scene {
     if (SHOW_COORDS) {
       const label = `${String.fromCharCode(65 + tile.x)}${tile.y + 1}`;
       this.add
-        .text(px - TILE_SIZE / 2 + 4, py - TILE_SIZE / 2 + 2, label, {
-          fontSize: '10px',
-          color: '#2a4a2a',
-        })
-        .setOrigin(0, 0);
+      .text(px - TILE_SIZE / 2 + 4, py - TILE_SIZE / 2 + 2, label, {
+        fontSize: '10px',
+        color: '#2a4a2a',
+      })
+      .setOrigin(0, 0);
     }
   }
 }

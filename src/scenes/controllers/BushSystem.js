@@ -1,38 +1,47 @@
 import { createInitialBushes } from '../../game/sim/bushes.js';
 import { assignVillager } from '../../game/sim/assignment.js';
 import { forageTick } from '../../game/sim/foraging.js';
-import { TILE_SIZE, TICK_MS } from '../scene-constants.js';
+import { CONFIG } from '../../game/config.js';
+import { TILE_SIZE } from '../scene-constants.js';
 
+/**
+ * Owns everything bush: data, sprites, assignment visuals, the foraging
+ * tick, harvest feedback, and the berry counter.
+ */
 export default class BushSystem {
   constructor(scene) {
     this.scene = scene;
     this.bushes = createInitialBushes();
-    this.sprites = new Map();
+    this.sprites = new Map(); // bush id -> sprite
     this.berries = 0;
     this.berryText = null;
   }
 
   setup() {
     const scene = this.scene;
+    // Bush tiles are blocked for wandering (but droppable for assignment).
     for (const b of this.bushes) {
       scene.blockedTiles.add(`${b.tileX},${b.tileY}`);
     }
     this.drawBushes();
+
     this.berryText = scene.add
-      .text(16, 16, 'Berries: 0', {
-        fontSize: '20px',
-        color: '#ffffff',
-        backgroundColor: '#00000088',
-        padding: { x: 8, y: 4 },
-      })
-      .setDepth(1000);
+    .text(16, 16, 'Berries: 0', {
+      fontSize: '20px',
+      color: '#ffffff',
+      backgroundColor: '#00000088',
+      padding: { x: 8, y: 4 },
+    })
+    .setDepth(1000); // above Y-sorted sprites
+
     scene.time.addEvent({
-      delay: TICK_MS,
+      delay: CONFIG.tickMs,
       loop: true,
       callback: () => this.onTick(),
     });
   }
 
+  // Swap this when bush art changes; everything else stays.
   drawBushes() {
     const scene = this.scene;
     for (const bush of this.bushes) {
@@ -41,7 +50,7 @@ export default class BushSystem {
       const sprite = scene.add.image(px, py, bush.spriteKey);
       sprite.setOrigin(0.5, 1);
       sprite.setScale(0.75);
-      sprite.setDepth(py);
+      sprite.setDepth(py); // pure Y-sort
       sprite.setData('bushId', bush.id);
       this.sprites.set(bush.id, sprite);
     }
@@ -55,24 +64,26 @@ export default class BushSystem {
     return this.bushes.find((b) => b.id === id);
   }
 
+  // Assign a villager to a bush. They stand on the bush tile at a random
+  // side (left, right, or top), facing the bush. Wandering stops.
   assignToBush(villagerId, bush) {
     const scene = this.scene;
     const idx = scene.villagers.findIndex((v) => v.id === villagerId);
     if (idx === -1) return;
     scene.wander.cancelWander(villagerId);
 
-    const sides = [
-      { workOffset: { x: -22, y: 2 }, workDir: 'right' },
-      { workOffset: { x: 22, y: 2 }, workDir: 'left' },
-      { workOffset: { x: 0, y: -14 }, workDir: 'down' },
-    ];
+    const sides = CONFIG.workSides.map((s) => ({
+      workOffset: { ...s.offset },
+      workDir: s.dir,
+    }));
     const { workOffset, workDir } =
       sides[Math.floor(Math.random() * sides.length)];
 
+    // Nudge apart when multiple workers share a bush, so they're all visible.
     const existingWorkers = scene.villagers.filter(
       (v) => v.assignedTo === bush.id
     ).length;
-    const nudge = (existingWorkers % 3 - 1) * 6;
+    const nudge = (existingWorkers % 3 - 1) * 6; // -6, 0, 6
     if (workDir === 'left' || workDir === 'right') {
       workOffset.y += nudge;
     } else {
@@ -96,12 +107,14 @@ export default class BushSystem {
     scene.drag.updateSelectionRing();
   }
 
+  // Harvest tick: villagers who've worked a full interval produce berries.
   onTick() {
     const scene = this.scene;
     const now = Date.now();
-    const producers = forageTick(scene.villagers, now, TICK_MS);
+    const producers = forageTick(scene.villagers, now, CONFIG.tickMs);
     if (producers.length === 0) return;
 
+    // Reset their work clocks so they produce every interval going forward.
     const producerIds = new Set(producers.map((v) => v.id));
     for (const v of scene.villagers) {
       if (producerIds.has(v.id)) v.assignedAt = now;
@@ -110,17 +123,18 @@ export default class BushSystem {
     this.berries += producers.length;
     this.berryText.setText(`Berries: ${this.berries}`);
 
+    // Feedback only on bushes that actually produced.
     const producingBushes = new Set(producers.map((v) => v.assignedTo));
     for (const bushId of producingBushes) {
       const sprite = this.sprites.get(bushId);
       if (!sprite) continue;
       const text = scene.add
-        .text(sprite.x, sprite.y - 48, '+1', {
-          fontSize: '18px',
-          color: '#ffff88',
-          fontStyle: 'bold',
-        })
-        .setOrigin(0.5);
+      .text(sprite.x, sprite.y - 48, '+1', {
+        fontSize: '18px',
+        color: '#ffff88',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
       scene.tweens.add({
         targets: text,
         y: text.y - 30,

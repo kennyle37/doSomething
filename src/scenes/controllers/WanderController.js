@@ -1,6 +1,7 @@
 import { pickWanderTarget } from '../../game/sim/wandering.js';
 import { findPath, findReachable } from '../../game/sim/pathfinding.js';
-import { TILE_SIZE, WALK_MS_PER_TILE } from '../scene-constants.js';
+import { CONFIG } from '../../game/config.js';
+import { TILE_SIZE } from '../scene-constants.js';
 
 /**
  * Owns wandering: scheduling, axis-aligned walk tweens, cancellation.
@@ -84,7 +85,10 @@ export default class WanderController {
       sprite.play(`${villager.spriteKey}_idle`);
       scene.renderer.layoutVillagers();
       // Longer walks earn longer rests.
-      this.scheduleWander(villagerId, 5000 + path.length * 3000);
+      this.scheduleWander(
+        villagerId,
+        CONFIG.wander.baseCooldownMs + path.length * CONFIG.wander.perTileCooldownMs
+      );
     };
 
     const runStep = (i) => {
@@ -105,9 +109,9 @@ export default class WanderController {
         targets: sprite,
         x: toX,
         y: toY,
-        duration: WALK_MS_PER_TILE,
+        duration: CONFIG.wander.msPerTile,
         ease: 'Linear',
-        onUpdate: () => sprite.setDepth(sprite.y),
+        onUpdate: () => sprite.setDepth(sprite.y), // Y-sort while walking
         onComplete: () => runStep(i + 1),
       });
       this.tweens.set(villagerId, tween);
