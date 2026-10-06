@@ -49,7 +49,7 @@ export default class VillageScene extends Phaser.Scene {
       'bush_flowers_red_01',
       'bush_flowers_white_01',
       'bush_flowers_yellow_01',
-      'bush_round_01',
+      'bush_flowers_blue_01',
     ]) {
       this.load.image(key, `serene_village_split/objects/${key}.png`);
     }

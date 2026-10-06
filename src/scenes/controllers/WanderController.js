@@ -1,4 +1,5 @@
 import { pickWanderTarget } from '../../game/sim/wandering.js';
+import { findPath, findReachable } from '../../game/sim/pathfinding.js';
 import { TILE_SIZE, WALK_MS_PER_TILE } from '../scene-constants.js';
 
 /**
@@ -22,8 +23,8 @@ export default class WanderController {
     this.timers.set(villagerId, timer);
   }
 
-  // Pick a random free tile and walk there axis-aligned (longer axis first),
-  // like classic RPG movement. On arrival, update the data model and
+  // Pick a random reachable tile and walk the path there step by step,
+  // routing around blocked tiles. On arrival, update the data model and
   // schedule the next wander. Cooldown scales with distance walked.
   startWander(villagerId) {
     const scene = this.scene;
@@ -33,37 +34,41 @@ export default class WanderController {
     const sprite = scene.renderer.getSprite(villagerId);
     if (!sprite) return;
 
-    const target = pickWanderTarget(
+    // Only pick targets we can actually path to.
+    const reachable = findReachable(
       villager.tileX,
       villager.tileY,
       scene.grid.width,
       scene.grid.height,
       scene.blockedTiles
     );
+    const target = pickWanderTarget(
+      villager.tileX,
+      villager.tileY,
+      scene.grid.width,
+      scene.grid.height,
+      // Block unreachable tiles too, so the pick is always valid.
+      new Set(
+        [...scene.blockedTiles].concat(
+          [...this.allTiles(scene)].filter((k) => !reachable.has(k))
+        )
+      )
+    );
     if (!target) return;
 
-    const toX = scene.originX + target.x * TILE_SIZE + TILE_SIZE / 2;
-    const toY = scene.originY + (target.y + 1) * TILE_SIZE;
-    const dx = toX - sprite.x;
-    const dy = toY - sprite.y;
-    const totalDistTiles = Math.sqrt(dx * dx + dy * dy) / TILE_SIZE;
-
-    // Build axis-aligned phases, longer axis first.
-    const phases = [];
-    const xPhase =
-      Math.abs(dx) >= 1
-        ? { axis: 'x', to: toX, dir: dx > 0 ? 'right' : 'left' }
-        : null;
-    const yPhase =
-      Math.abs(dy) >= 1
-        ? { axis: 'y', to: toY, dir: dy > 0 ? 'down' : 'up' }
-        : null;
-    if (Math.abs(dx) >= Math.abs(dy)) {
-      if (xPhase) phases.push(xPhase);
-      if (yPhase) phases.push(yPhase);
-    } else {
-      if (yPhase) phases.push(yPhase);
-      if (xPhase) phases.push(xPhase);
+    const path = findPath(
+      villager.tileX,
+      villager.tileY,
+      target.x,
+      target.y,
+      scene.grid.width,
+      scene.grid.height,
+      scene.blockedTiles
+    );
+    if (!path || path.length === 0) {
+      // Nowhere to go (or already there); rest and try again later.
+      this.scheduleWander(villagerId, 5000);
+      return;
     }
 
     const finish = () => {
@@ -79,35 +84,44 @@ export default class WanderController {
       sprite.play(`${villager.spriteKey}_idle`);
       scene.renderer.layoutVillagers();
       // Longer walks earn longer rests.
-      this.scheduleWander(villagerId, 5000 + totalDistTiles * 3000);
+      this.scheduleWander(villagerId, 5000 + path.length * 3000);
     };
 
-    if (phases.length === 0) {
-      finish();
-      return;
-    }
-
-    const runPhase = (i) => {
-      if (i >= phases.length) {
+    const runStep = (i) => {
+      if (i >= path.length) {
         finish();
         return;
       }
-      const phase = phases[i];
-      sprite.play(`${villager.spriteKey}_walk_${phase.dir}`);
-      const dist = Math.abs(
-        phase.to - (phase.axis === 'x' ? sprite.x : sprite.y)
-      );
+      const step = path[i];
+      const prev = i === 0 ? villager : path[i - 1];
+      const dx = step.x - prev.x;
+      const dy = step.y - prev.y;
+      const dir =
+        dx > 0 ? 'right' : dx < 0 ? 'left' : dy > 0 ? 'down' : 'up';
+      sprite.play(`${villager.spriteKey}_walk_${dir}`);
+      const toX = scene.originX + step.x * TILE_SIZE + TILE_SIZE / 2;
+      const toY = scene.originY + (step.y + 1) * TILE_SIZE;
       const tween = scene.tweens.add({
         targets: sprite,
-        [phase.axis]: phase.to,
-        duration: Math.max(200, (dist / TILE_SIZE) * WALK_MS_PER_TILE),
+        x: toX,
+        y: toY,
+        duration: WALK_MS_PER_TILE,
         ease: 'Linear',
-        onComplete: () => runPhase(i + 1),
+        onUpdate: () => sprite.setDepth(sprite.y),
+        onComplete: () => runStep(i + 1),
       });
       this.tweens.set(villagerId, tween);
     };
 
-    runPhase(0);
+    runStep(0);
+  }
+
+  *allTiles(scene) {
+    for (let x = 0; x < scene.grid.width; x++) {
+      for (let y = 0; y < scene.grid.height; y++) {
+        yield `${x},${y}`;
+      }
+    }
   }
 
   // Stop any in-progress wander (tween or scheduled) for a villager.

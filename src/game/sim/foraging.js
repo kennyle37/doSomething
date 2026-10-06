@@ -1,12 +1,11 @@
 /**
  * Foraging production. Pure function.
- * Each assigned villager produces 1 berry per tick.
- * (Will use the spec-00 labor formula when bush configs get complex.)
+ * Each assigned villager produces 1 berry per 10s of actual work.
+ * A villager must have been assigned for a full tick interval before
+ * producing; dropping them on just before the tick doesn't count.
  */
-
-/**
- * Returns the number of berries produced this tick.
- */
-export function forageTick(villagers) {
-  return villagers.filter((v) => v.state === 'assigned').length;
+export function forageTick(villagers, now, tickMs) {
+  return villagers.filter(
+    (v) => v.state === 'assigned' && now - v.assignedAt >= tickMs
+  );
 }

@@ -3,30 +3,36 @@ import { forageTick } from './foraging.js';
 import { createVillager } from './villagers.js';
 import { assignVillager } from './assignment.js';
 
+const TICK = 10000;
+
+function assignedVillager(id, assignedAt) {
+  const v = assignVillager(createVillager(id, 'V' + id, 'villager_female_elf', 2, 2), 1);
+  return { ...v, assignedAt };
+}
+
 describe('foraging', () => {
-  it('produces 0 with no assigned villagers', () => {
+  it('produces nothing with no assigned villagers', () => {
     const villagers = [
       createVillager(1, 'A', 'villager_female_elf', 2, 2),
       createVillager(2, 'B', 'villager_male_elf_gray', 3, 3),
     ];
-    expect(forageTick(villagers)).toBe(0);
+    expect(forageTick(villagers, 20000, TICK)).toEqual([]);
   });
 
-  it('produces 1 per assigned villager', () => {
-    const v1 = assignVillager(createVillager(1, 'A', 'villager_female_elf', 2, 2), 1);
-    expect(forageTick([v1])).toBe(1);
+  it('produces after a full interval of work', () => {
+    const v1 = assignedVillager(1, 0);
+    expect(forageTick([v1], 10000, TICK)).toEqual([v1]);
   });
 
-  it('multiple villagers on the same bush all produce', () => {
-    const v1 = assignVillager(createVillager(1, 'A', 'villager_female_elf', 2, 2), 1);
-    const v2 = assignVillager(createVillager(2, 'B', 'villager_male_elf_gray', 2, 3), 1);
-    const v3 = assignVillager(createVillager(3, 'C', 'villager_male_horns', 3, 3), 1);
-    expect(forageTick([v1, v2, v3])).toBe(3);
+  it('does not produce if assigned just before the tick', () => {
+    const v1 = assignedVillager(1, 9000);
+    expect(forageTick([v1], 10000, TICK)).toEqual([]);
+    expect(forageTick([v1], 19000, TICK)).toEqual([v1]);
   });
 
   it('idle villagers do not produce', () => {
-    const v1 = assignVillager(createVillager(1, 'A', 'villager_female_elf', 2, 2), 1);
+    const v1 = assignedVillager(1, 0);
     const v2 = createVillager(2, 'B', 'villager_male_elf_gray', 3, 3);
-    expect(forageTick([v1, v2])).toBe(1);
+    expect(forageTick([v1, v2], 20000, TICK)).toEqual([v1]);
   });
 });

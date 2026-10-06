@@ -16,6 +16,6 @@ export function createInitialBushes() {
     createBush(1, 5, 1, 'bush_flowers_red_01'),
     createBush(2, 6, 1, 'bush_flowers_white_01'),
     createBush(3, 5, 2, 'bush_flowers_yellow_01'),
-    createBush(4, 6, 2, 'bush_round_01'),
+    createBush(4, 6, 2, 'bush_flowers_blue_01'),
   ];
 }

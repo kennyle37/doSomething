@@ -110,15 +110,21 @@ export default class VillagerRenderer {
         // Wandering villagers are positioned by their tween, not the layout.
         if (scene.wander.tweens.has(v.id)) return;
         const sprite = this.sprites.get(v.id);
-        const [ox, oy] = offsets[i];
+        // Assigned workers use their work offset (from the drop position),
+        // not the cluster layout.
+        const [ox, oy] = v.workOffset
+          ? [v.workOffset.x, v.workOffset.y]
+          : offsets[i];
         const px = scene.originX + v.tileX * TILE_SIZE + TILE_SIZE / 2 + ox;
         const py = scene.originY + (v.tileY + 1) * TILE_SIZE + oy; // feet at tile bottom
+        sprite.setDepth(py); // Y-sort
         scene.tweens.add({
           targets: sprite,
           x: px,
           y: py,
           duration: 150,
           ease: 'Power2',
+          onUpdate: () => sprite.setDepth(sprite.y),
         });
       });
     }
