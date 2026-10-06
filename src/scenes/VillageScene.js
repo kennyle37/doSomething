@@ -6,6 +6,8 @@ import VillagerRenderer from './controllers/VillagerRenderer.js';
 import DragManager from './controllers/DragManager.js';
 import WanderController from './controllers/WanderController.js';
 import BushSystem from './controllers/BushSystem.js';
+import SaveSystem from './controllers/SaveSystem.js';
+import DebugConsole from './controllers/DebugConsole.js';
 import {
   TILE_SIZE,
   TILE_COLOR,
@@ -111,6 +113,8 @@ export default class VillageScene extends Phaser.Scene {
     this.wander = new WanderController(this);
     this.bushes = new BushSystem(this);
     this.drag = new DragManager(this);
+    this.save = new SaveSystem(this);
+    this.debug = new DebugConsole(this);
 
     this.bushes.setup();
     this.renderer.drawVillagers();
@@ -125,6 +129,10 @@ export default class VillageScene extends Phaser.Scene {
         initialDelayMinMs + Math.random() * (initialDelayMaxMs - initialDelayMinMs)
       );
     }
+
+    // Load save last.
+    this.save.setup();
+    this.debug.setup();
   }
 
   // Swap this one function when the art arrives; everything else stays.

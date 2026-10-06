@@ -32,4 +32,10 @@ export const CONFIG = {
     initialDelayMinMs: 2000,
     initialDelayMaxMs: 8000,
   },
+
+  // Save system.
+  save: {
+    autoSaveMs: 10000,
+    maxOfflineMs: 8 * 3600 * 1000,
+  },
 };

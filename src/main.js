@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import RexUIPlugin from 'phaser3-rex-plugins/templates/ui/ui-plugin.js';
 import VillageScene from './scenes/VillageScene.js';
 
 const config = {
@@ -13,7 +14,10 @@ const config = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
-  scene: [VillageScene]
+  scene: [VillageScene],
+  plugins: {
+    scene: [{ key: 'rexUI', plugin: RexUIPlugin, mapping: 'rexUI' }],
+  },
 };
 
 // eslint-disable-next-line no-new
