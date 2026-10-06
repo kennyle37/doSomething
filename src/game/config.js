@@ -35,7 +35,35 @@ export const CONFIG = {
 
   // Save system.
   save: {
-    autoSaveMs: 10000,
-    maxOfflineMs: 8 * 3600 * 1000,
+    autoSaveMs: 10000, // auto-save every 10 seconds
+    maxOfflineMs: 8 * 3600 * 1000, // 8 hour offline cap
+  },
+
+  // Cooking (Phase 2).
+  cooking: {
+    campfire: { tileX: 2, tileY: 4, workOffsetScale: 1.5 }, // C5, cooks stand further out
+    eatTickMs: 60000, // villagers seek food every 60s
+    mealExpiryMs: 10 * 60 * 1000, // meals rot after 10 min
+    rottenDespawnMs: 2 * 60 * 1000, // rotten meals despawn after 2 min
+    berryCap: 100,
+    mealCap: 50,
+    recipes: [
+      {
+        id: 'berry-meal',
+        name: 'Berry Meal',
+        berriesCost: 2,
+        cooksRequired: 1,
+        cookTicks: 2, // 20s at 10s tick
+        exp: 1,
+      },
+      {
+        id: 'hearty-stew',
+        name: 'Hearty Stew',
+        berriesCost: 4,
+        cooksRequired: 2,
+        cookTicks: 3, // 30s at 10s tick
+        exp: 2,
+      },
+    ],
   },
 };

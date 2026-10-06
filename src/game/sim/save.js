@@ -12,7 +12,7 @@ export const SAVE_KEY = 'idle-save-1';
  * @param {number} berries - current berry count
  * @param {number} now - timestamp (Date.now())
  */
-export function createSave(villagers, berries, now = Date.now()) {
+export function createSave(villagers, berries, now = Date.now(), cooking = null) {
   return {
     version: SAVE_VERSION,
     savedAt: now,
@@ -28,7 +28,9 @@ export function createSave(villagers, berries, now = Date.now()) {
       workOffset: v.workOffset,
       workDir: v.workDir,
       assignedAt: v.assignedAt,
+      exp: v.exp || 0,
     })),
+    cooking: cooking || { queue: [], activeJob: null, meals: [] },
   };
 }
 
@@ -100,5 +102,6 @@ export function applySave(villagers, save) {
     v.workOffset = s.workOffset;
     v.workDir = s.workDir;
     v.assignedAt = s.assignedAt;
+    v.exp = s.exp || 0;
   }
 }

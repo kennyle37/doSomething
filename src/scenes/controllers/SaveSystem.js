@@ -48,7 +48,7 @@ export default class SaveSystem {
 
   saveToStorage() {
     const scene = this.scene;
-    const save = createSave(scene.villagers, scene.bushes.berries);
+    const save = createSave(scene.villagers, scene.bushes.berries, Date.now(), scene.cook ? scene.cook.getSaveData() : null);
     try {
       localStorage.setItem(SAVE_KEY, serialize(save));
     } catch (e) {
@@ -76,6 +76,11 @@ export default class SaveSystem {
     applySave(scene.villagers, save);
     scene.bushes.berries = save.berries;
     scene.bushes.berryText.setText(`Berries: ${save.berries}`);
+
+    // Restore cooking state.
+    if (scene.cook && save.cooking) {
+      scene.cook.loadSaveData(save.cooking);
+    }
 
     // Re-render villagers at their saved positions.
     scene.renderer.drawVillagers();
@@ -148,7 +153,7 @@ export default class SaveSystem {
 
   exportToFile() {
     const scene = this.scene;
-    const save = createSave(scene.villagers, scene.bushes.berries);
+    const save = createSave(scene.villagers, scene.bushes.berries, Date.now(), scene.cook ? scene.cook.getSaveData() : null);
     const json = JSON.stringify(save, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -247,7 +252,7 @@ export default class SaveSystem {
       },
       tick: () => scene.bushes.onTick(),
       export: () => {
-        const str = serialize(createSave(scene.villagers, scene.bushes.berries));
+        const str = serialize(createSave(scene.villagers, scene.bushes.berries, Date.now(), scene.cook ? scene.cook.getSaveData() : null));
         console.log(str);
         return str;
       },

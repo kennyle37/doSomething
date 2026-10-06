@@ -6,7 +6,7 @@ Key decisions (locked):
     - G2 (6,1): `bush_flowers_white_01.png`
     - F3 (5,2): `bush_flowers_yellow_01.png`
     - G3 (6,2): `bush_round_01.png`
-    - Sprites from `public/serene_village_split/objects/`.
+    - Sprites from `public/serene_village/objects/`.
 - Bush data: `{ id, tileX, tileY, spriteKey }`.
 - Assignment: drag a villager onto a bush tile to assign. The villager moves
   to an adjacent free tile (not on top of the bush), facing the bush.

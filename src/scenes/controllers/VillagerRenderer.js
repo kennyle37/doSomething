@@ -62,11 +62,10 @@ export default class VillagerRenderer {
     sprite.setOrigin(0.5, 1);
     sprite.setData('villagerId', villager.id);
     // Expanded touch target (1.5x sprite). Hit area is in frame space:
-    // (0,0) is top-left of the 48x48 frame, so center a 72x72 rect on it.
-    // useHandCursor gives the hover pointer. Manual drag (see DragManager),
-    // so no `draggable` here.
+    // Tight hitbox (48x48 sprite, not the oversized 72x72).
+    // Prevents overlap with nearby click targets like the campfire.
     sprite.setInteractive({
-      hitArea: new Phaser.Geom.Rectangle(-12, -12, 72, 72),
+      hitArea: new Phaser.Geom.Rectangle(0, 0, 48, 48),
       hitAreaCallback: Phaser.Geom.Rectangle.Contains,
       useHandCursor: true,
     });
@@ -83,7 +82,15 @@ export default class VillagerRenderer {
       const picked = this.sprites.get(pickedId);
       picked.setScale(1.15);
       scene.children.bringToTop(picked);
-      scene.children.bringToTop(scene.drag.selectionRing);
+    });
+
+    // Hover: scale up slightly (easier to see it's draggable).
+    // Skip while dragging (drag already scales to 1.15).
+    sprite.on('pointerover', () => {
+      if (!scene.drag.dragging) sprite.setScale(1.1);
+    });
+    sprite.on('pointerout', () => {
+      if (!scene.drag.dragging) sprite.setScale(1);
     });
 
     return sprite;
