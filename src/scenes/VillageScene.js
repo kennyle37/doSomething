@@ -7,6 +7,8 @@ import DragManager from './controllers/DragManager.js';
 import WanderController from './controllers/WanderController.js';
 import BushSystem from './controllers/BushSystem.js';
 import SaveSystem from './controllers/SaveSystem.js';
+import CookSystem from './controllers/CookSystem.js';
+import WorkSystem from './controllers/WorkSystem.js';
 import DebugConsole from './controllers/DebugConsole.js';
 import {
   TILE_SIZE,
@@ -33,6 +35,13 @@ export default class VillageScene extends Phaser.Scene {
         frameWidth: 48,
         frameHeight: 48,
       });
+      for (const dir of ['left', 'right', 'up']) {
+        this.load.spritesheet(
+          `${spriteKey}_idle_${dir}`,
+          `memao/${spriteKey}/idle_${dir}.png`,
+          { frameWidth: 48, frameHeight: 48 }
+        );
+      }
       for (const dir of WALK_DIRS) {
         this.load.spritesheet(
           `${spriteKey}_walk_${dir}`,
@@ -53,9 +62,17 @@ export default class VillageScene extends Phaser.Scene {
       'bush_flowers_white_01',
       'bush_flowers_yellow_01',
       'bush_flowers_blue_01',
+      'planter_green_01',
     ]) {
-      this.load.image(key, `serene_village_split/objects/${key}.png`);
+      this.load.image(key, `serene_village/objects/${key}.png`);
     }
+    // Rotten meal (mushroom, in pickups folder).
+    this.load.image('mushroom_orange_02', 'serene_village/pickups/mushroom_orange_02.png');
+    // Campfire (animated spritesheet).
+    this.load.spritesheet('campfire', 'serene_village/animated/campfire_48x48.png', {
+      frameWidth: 48,
+      frameHeight: 48,
+    });
   }
 
   create() {
@@ -84,6 +101,17 @@ export default class VillageScene extends Phaser.Scene {
         frameRate: 4,
         repeat: -1,
       });
+      for (const dir of ['left', 'right', 'up']) {
+        this.anims.create({
+          key: `${spriteKey}_idle_${dir}`,
+          frames: this.anims.generateFrameNumbers(`${spriteKey}_idle_${dir}`, {
+            start: 0,
+            end: 3,
+          }),
+          frameRate: 4,
+          repeat: -1,
+        });
+      }
       for (const dir of WALK_DIRS) {
         this.anims.create({
           key: `${spriteKey}_walk_${dir}`,
@@ -108,15 +136,26 @@ export default class VillageScene extends Phaser.Scene {
       }
     }
 
+    // Campfire animation.
+    this.anims.create({
+      key: 'campfire_burn',
+      frames: this.anims.generateFrameNumbers('campfire', { start: 0, end: 1 }),
+      frameRate: 4,
+      repeat: -1,
+    });
+
     // Controllers, in dependency order.
     this.renderer = new VillagerRenderer(this);
     this.wander = new WanderController(this);
+    this.work = new WorkSystem(this);
     this.bushes = new BushSystem(this);
+    this.cook = new CookSystem(this);
     this.drag = new DragManager(this);
     this.save = new SaveSystem(this);
     this.debug = new DebugConsole(this);
 
     this.bushes.setup();
+    this.cook.setup();
     this.renderer.drawVillagers();
     this.drag.setupInput();
     this.drag.setupTileTap();
@@ -130,9 +169,12 @@ export default class VillageScene extends Phaser.Scene {
       );
     }
 
-    // Load save last.
+    // Load save last: restores assignments and cancels wandering for workers.
     this.save.setup();
     this.debug.setup();
+
+    // Sync cook animations after save restores (sprites exist now).
+    this.cook.syncCookAnims();
   }
 
   // Swap this one function when the art arrives; everything else stays.

@@ -1,5 +1,4 @@
 import { createInitialBushes } from '../../game/sim/bushes.js';
-import { assignVillager } from '../../game/sim/assignment.js';
 import { forageTick } from '../../game/sim/foraging.js';
 import { CONFIG } from '../../game/config.js';
 import { TILE_SIZE } from '../scene-constants.js';
@@ -36,12 +35,12 @@ export default class BushSystem {
 
     // Inline +N indicator, sits right after the counter text.
     this.berryGainText = scene.add
-      .text(16, 16, '', {
-        fontSize: '14px',
-        color: '#7CFC00',
-        fontStyle: 'bold',
-      })
-      .setDepth(1000);
+    .text(16, 16, '', {
+      fontSize: '14px',
+      color: '#7CFC00',
+      fontStyle: 'bold',
+    })
+    .setDepth(1000);
     this._gainTimer = null;
 
     scene.time.addEvent({
@@ -63,6 +62,8 @@ export default class BushSystem {
       sprite.setDepth(py); // pure Y-sort
       sprite.setData('bushId', bush.id);
       this.sprites.set(bush.id, sprite);
+      // Register for drag-highlight.
+      if (scene.work) scene.work.registerTarget(bush.id, bush.tileX, bush.tileY, sprite);
     }
   }
 
@@ -77,49 +78,15 @@ export default class BushSystem {
   // Assign a villager to a bush. They stand on the bush tile at a random
   // side (left, right, or top), facing the bush. Wandering stops.
   assignToBush(villagerId, bush) {
-    const scene = this.scene;
-    const idx = scene.villagers.findIndex((v) => v.id === villagerId);
-    if (idx === -1) return;
-    scene.wander.cancelWander(villagerId);
-
-    const sides = CONFIG.workSides.map((s) => ({
-      workOffset: { ...s.offset },
-      workDir: s.dir,
-    }));
-    const { workOffset, workDir } =
-      sides[Math.floor(Math.random() * sides.length)];
-
-    // Nudge apart when multiple workers share a bush, so they're all visible.
-    const existingWorkers = scene.villagers.filter(
-      (v) => v.assignedTo === bush.id
-    ).length;
-    const nudge = (existingWorkers % 3 - 1) * 6; // -6, 0, 6
-    if (workDir === 'left' || workDir === 'right') {
-      workOffset.y += nudge;
-    } else {
-      workOffset.x += nudge;
-    }
-
-    scene.villagers[idx] = {
-      ...assignVillager(scene.villagers[idx], bush.id),
+    this.scene.work.assignToTarget(villagerId, {
       tileX: bush.tileX,
       tileY: bush.tileY,
-      workOffset,
-      workDir,
-      assignedAt: Date.now(),
-    };
-    scene.drag.selectedVillager = null;
-
-    const sprite = scene.renderer.getSprite(villagerId);
-    const villager = scene.villagers[idx];
-    sprite.play(`${villager.spriteKey}_work_${workDir}`);
-    scene.renderer.layoutVillagers();
-    scene.drag.updateSelectionRing();
+      assignedTo: bush.id,
+    });
   }
 
   // Harvest tick: villagers who've worked a full interval produce berries.
   onTick() {
-    if (!this.berryText) return; // scene not ready yet
     const scene = this.scene;
     const now = Date.now();
     const producers = forageTick(scene.villagers, now, CONFIG.tickMs);
@@ -143,6 +110,7 @@ export default class BushSystem {
     this._gainTimer = scene.time.delayedCall(1500, () => gainText.setText(''));
 
     // Feedback only on bushes that actually produced.
+    // Feedback per bush: show actual count produced there.
     const producedPerBush = new Map();
     for (const v of producers) {
       producedPerBush.set(v.assignedTo, (producedPerBush.get(v.assignedTo) || 0) + 1);
@@ -159,7 +127,7 @@ export default class BushSystem {
         strokeThickness: 4,
       })
       .setOrigin(0.5)
-      .setDepth(1000);
+      .setDepth(1000); // above everything
       scene.tweens.add({
         targets: text,
         y: text.y - 30,
