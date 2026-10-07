@@ -28,12 +28,34 @@ export function startCooking(recipe, berries) {
   return {
     job: {
       recipeId: recipe.id,
-      ticksLeft: recipe.cookTicks,
-      totalTicks: recipe.cookTicks,
+      progressSec: 0,
+      totalSec: recipe.cookTimeSec,
       startedAt: Date.now(),
     },
     berriesLeft: berries - recipe.berriesCost,
   };
+}
+
+/**
+ * Advance cooking by delta seconds. Returns completion status.
+ * Pauses (no progress) if not enough cooks, does NOT cancel.
+ * @param {Object} job - active cooking job
+ * @param {number} deltaSec - seconds to advance
+ * @param {number} cookCount - current cooks assigned
+ * @param {number} cooksRequired - cooks needed for this recipe
+ * @param {number} totalSec - total seconds needed
+ * @returns {{ done: boolean, job: Object, paused: boolean }}
+ */
+export function cookingProgress(job, deltaSec, cookCount, cooksRequired, totalSec) {
+  // Paused if not enough cooks (resume when restaffed).
+  if (cookCount < cooksRequired) {
+    return { done: false, job, paused: true };
+  }
+  const progressSec = job.progressSec + deltaSec;
+  if (progressSec >= totalSec) {
+    return { done: true, job: { ...job, progressSec: totalSec }, paused: false };
+  }
+  return { done: false, job: { ...job, progressSec }, paused: false };
 }
 
 /**
@@ -42,6 +64,7 @@ export function startCooking(recipe, berries) {
  * @param {number} cookCount - current cooks assigned
  * @param {number} cooksRequired - cooks needed for this recipe
  * @returns {{ done: boolean, job: Object }} - job with decremented ticksLeft
+ * @deprecated Use cookingProgress for real-time cooking.
  */
 export function cookingTick(job, cookCount, cooksRequired) {
   // Paused if not enough cooks.

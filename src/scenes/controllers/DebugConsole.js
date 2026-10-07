@@ -175,6 +175,8 @@ export default class DebugConsole {
     switch (cmd) {
       case '/help':
         this.log('/berries <n> - set berry count');
+        this.log('/meal <berry|stew> - spawn a meal');
+        this.log('/hungry - make all villagers hungry');
         this.log('/assignall - assign all villagers');
         this.log('/unassignall - unassign all');
         this.log('/tick - force production tick');
@@ -189,6 +191,41 @@ export default class DebugConsole {
         scene.bushes.berries = n;
         scene.bushes.berryText.setText(`Berries: ${n}`);
         this.log(`Berries set to ${n}`);
+        break;
+      }
+
+      case '/meal': {
+        const type = (arg || 'berry').toLowerCase();
+        // /meal 5 or /meal stew 3
+        let recipeId = 'berry-meal';
+        let count = 1;
+        const parts = cmdStr.split(/\s+/).slice(1);
+        for (const p of parts) {
+          if (/^\d+$/.test(p)) count = parseInt(p, 10);
+          else if (p.toLowerCase().startsWith('stew')) recipeId = 'hearty-stew';
+          else if (p.toLowerCase().startsWith('berry')) recipeId = 'berry-meal';
+        }
+        count = Math.min(Math.max(count, 1), 20); // cap at 20
+        if (scene.cook && scene.cook.spawnDebugMeal) {
+          for (let i = 0; i < count; i++) scene.cook.spawnDebugMeal(recipeId);
+          this.log(`Spawned ${count}x ${recipeId}`);
+        } else {
+          this.log('Cook system not ready');
+        }
+        break;
+      }
+
+      case '/hungry': {
+        for (let i = 0; i < scene.villagers.length; i++) {
+          const v = scene.villagers[i];
+          if (v.stats) {
+            scene.villagers[i] = {
+              ...v,
+              stats: { ...v.stats, hunger: 10 },
+            };
+          }
+        }
+        this.log('All villagers are now hungry');
         break;
       }
 

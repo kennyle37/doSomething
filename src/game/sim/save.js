@@ -3,6 +3,8 @@
  * Versioned schema so old saves can be migrated or rejected gracefully.
  */
 
+import { createStats } from './villagerStats.js';
+
 export const SAVE_VERSION = 1;
 export const SAVE_KEY = 'idle-save-1';
 
@@ -23,12 +25,13 @@ export function createSave(villagers, berries, now = Date.now(), cooking = null)
       spriteKey: v.spriteKey,
       tileX: v.tileX,
       tileY: v.tileY,
-      state: v.state,
+      state: v.state === 'eating' ? 'idle' : v.state, // never persist mid-meal
       assignedTo: v.assignedTo,
       workOffset: v.workOffset,
       workDir: v.workDir,
       assignedAt: v.assignedAt,
       exp: v.exp || 0,
+      stats: v.stats ? { ...v.stats, traits: [...(v.stats.traits || [])] } : null,
     })),
     cooking: cooking || { queue: [], activeJob: null, meals: [] },
   };
@@ -103,5 +106,12 @@ export function applySave(villagers, save) {
     v.workDir = s.workDir;
     v.assignedAt = s.assignedAt;
     v.exp = s.exp || 0;
+    // Stats: restore or mint fresh for old saves. Never restore mid-meal.
+    v.stats = s.stats
+      ? { ...createStats(), ...s.stats, traits: [...(s.stats.traits || [])] }
+      : createStats();
+    delete v.eatingMealId;
+    delete v.previousAssignment;
   }
 }
+

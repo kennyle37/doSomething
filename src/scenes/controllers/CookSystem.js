@@ -1,7 +1,7 @@
 import {
   canStartRecipe,
   startCooking,
-  cookingTick,
+  cookingProgress,
   queueAdd,
   queueRemove,
   queueNext,
@@ -52,11 +52,12 @@ export default class CookSystem {
     })
     .setDepth(1000);
 
-    // Cooking tick (same 10s as foraging).
+    // Cooking progress (1-second granularity, real-time).
+    // Handles both starting queued recipes and advancing active jobs.
     scene.time.addEvent({
-      delay: CONFIG.tickMs,
+      delay: 1000,
       loop: true,
-      callback: () => this.onCookTick(),
+      callback: () => this.onCookSecond(),
     });
 
     // Eat tick (villagers seek meals). PAUSED for now - eating is a separate spec.
@@ -137,6 +138,13 @@ export default class CookSystem {
     return this.scene.villagers.filter((v) => v.assignedTo === 'campfire').length;
   }
 
+  /**
+   * Refresh the queue UI if the dialog is open. Safe to call anytime.
+   */
+  renderQueue() {
+    if (this._updateQueueText) this._updateQueueText();
+  }
+
   // --- Recipe menu (tap campfire) ---
   // HTML overlay. Click a recipe to add to queue.
 
@@ -176,8 +184,7 @@ export default class CookSystem {
     queueDiv.style.cssText =
       'background: #222; border-radius: 8px; padding: 10px 12px;' +
       'margin: 12px 0; font-size: 12px; color: #ccc;';
-    const updateQueueText = () => {
-      queueDiv.innerHTML = '';
+    const updateQueueText = () => {      queueDiv.innerHTML = '';
       const titleDiv = document.createElement('div');
       titleDiv.style.marginBottom = '6px';
       titleDiv.textContent = 'Queue:';
@@ -232,7 +239,7 @@ export default class CookSystem {
         const cookingDiv = document.createElement('div');
         cookingDiv.style.cssText = 'margin-top: 8px; color: #ffdd88;';
         cookingDiv.textContent =
-          `Cooking: ${r ? r.name : '?'} (${this.activeJob.ticksLeft} left)`;
+          `Cooking: ${r ? r.name : '?'}${this.activeJobPaused ? ' (paused)' : ''}`;
         queueDiv.appendChild(cookingDiv);
       }
     };
@@ -263,6 +270,8 @@ export default class CookSystem {
 
     updateQueueText();
     dialog.appendChild(queueDiv);
+    // Store for external refresh (e.g. after offline sim or tick updates).
+    this._updateQueueText = updateQueueText;
 
     const closeBtn = document.createElement('button');
     closeBtn.textContent = 'Close';
@@ -289,7 +298,7 @@ export default class CookSystem {
 
   // --- Cooking tick ---
 
-  onCookTick() {
+  onCookSecond() {
     const scene = this.scene;
     const recipes = CONFIG.cooking.recipes;
     const recipeMap = Object.fromEntries(recipes.map((r) => [r.id, r]));
@@ -334,13 +343,19 @@ export default class CookSystem {
     if (this.activeJob) {
       const recipe = recipeMap[this.activeJob.recipeId];
       const cookCount = this.getCookCount();
-      const { done, job } = cookingTick(this.activeJob, cookCount, recipe.cooksRequired);
+      // Real-time progress. If understaffed, PAUSES (resumes when restaffed).
+      const { done, job, paused } = cookingProgress(
+        this.activeJob, 1, cookCount, recipe.cooksRequired, recipe.cookTimeSec
+      );
       this.activeJob = job;
+      this.activeJobPaused = paused;
       if (done) {
         this.completeCooking(recipe);
         this.activeJob = null;
+        this.activeJobPaused = false;
         // Cooks stay in work anim (tending the fire) while assigned.
       }
+      this.renderQueue();
     }
   }
 
@@ -390,6 +405,15 @@ export default class CookSystem {
     });
   }
 
+  /**
+   * Debug: spawn a meal instantly (for testing eating/leveling).
+   */
+  spawnDebugMeal(recipeId) {
+    const recipe = CONFIG.cooking.recipes.find((r) => r.id === recipeId);
+    if (!recipe) return;
+    this.completeCooking(recipe);
+  }
+
   drawMeal(meal, animate = false) {
     const scene = this.scene;
     const px = scene.originX + meal.tileX * TILE_SIZE + TILE_SIZE / 2 + meal.offsetX;
@@ -400,6 +424,8 @@ export default class CookSystem {
     .setDepth(py - 10)
     .setScale(0.25);
     this.mealSprites.set(meal.id, sprite);
+    // Drag-to-feed: let the player drag meals onto villagers.
+    if (scene.eat) scene.eat.makeMealDraggable(sprite, meal.id);
 
     // Pop-out animation: scale up with bounce + slight upward hop.
     if (animate) {
@@ -454,6 +480,19 @@ export default class CookSystem {
 
   // --- Eating ---
 
+  /**
+   * Remove a meal from the world (eaten). Destroys its sprite and
+   * updates the counter.
+   */
+  removeMeal(mealId) {
+    this.meals = this.meals.filter((m) => m.id !== mealId);
+    const sprite = this.mealSprites.get(mealId);
+    if (sprite) sprite.destroy();
+    this.mealSprites.delete(mealId);
+    const fresh = this.meals.filter((m) => !m.rotten).length;
+    if (this.mealText) this.mealText.setText(`Meals: ${fresh}`);
+  }
+
   onEatTick() {
     const scene = this.scene;
     const recipes = CONFIG.cooking.recipes;
@@ -507,6 +546,107 @@ export default class CookSystem {
       meals: this.meals,
       mealCount: this.meals.filter((m) => !m.rotten).length,
     };
+  }
+
+  /**
+   * Offline priority: lower runs first. Berries=0, cooking=10, eating=20.
+   */
+  get offlinePriority() { return 10; }
+
+  /**
+   * Format the offline result for the "While you were away" toast.
+   */
+  offlineToast(mealsDone) {
+    return mealsDone > 0 ? `+${mealsDone} meals cooked` : null;
+  }
+
+  /**
+   * Simulate cooking while the tab was closed (real-time seconds).
+   * Returns the number of meals completed offline.
+   */
+  simulateOffline(elapsedMs, saveTimestamp) {
+    const scene = this.scene;
+    const maxSec = Math.floor(CONFIG.save.maxOfflineMs / 1000);
+    const totalSec = Math.min(Math.floor(elapsedMs / 1000), maxSec);
+    if (totalSec <= 0) return 0;
+
+    const recipes = CONFIG.cooking.recipes;
+    const recipeMap = Object.fromEntries(recipes.map((r) => [r.id, r]));
+    const cookCount = this.getCookCount();
+    let completed = 0;
+
+    for (let s = 0; s < totalSec; s++) {
+      const tickTime = saveTimestamp + (s + 1) * 1000;
+
+      // Start next recipe if none active.
+      if (!this.activeJob && this.queue.length > 0) {
+        let startedIdx = -1;
+        for (let j = 0; j < this.queue.length; j++) {
+          const recipe = recipeMap[this.queue[j]];
+          if (!recipe) continue;
+          const check = canStartRecipe(recipe, cookCount, scene.bushes.berries);
+          if (check.ok) {
+            const { job, berriesLeft } = startCooking(recipe, scene.bushes.berries);
+            this.activeJob = job;
+            startedIdx = j;
+            scene.bushes.berries = berriesLeft;
+            break;
+          }
+        }
+        if (startedIdx >= 0) {
+          this.queue = [
+            ...this.queue.slice(0, startedIdx),
+            ...this.queue.slice(startedIdx + 1),
+          ];
+        }
+      }
+
+      // Advance active job (pauses if understaffed, resumes when restaffed).
+      if (this.activeJob) {
+        const recipe = recipeMap[this.activeJob.recipeId];
+        const { done, job } = cookingProgress(
+          this.activeJob, 1, cookCount, recipe.cooksRequired, recipe.cookTimeSec
+        );
+        this.activeJob = job;
+        if (done) {
+          const { tileX, tileY } = this.campfireTile;
+          const meal = createMeal(recipe.id, tileX, tileY, 0, 0, tickTime);
+          meal.offsetX = (Math.random() - 0.5) * 28;
+          meal.offsetY = (Math.random() - 0.5) * 20;
+          this.meals.push(meal);
+          completed++;
+          this.activeJob = null;
+        }
+      }
+    }
+
+    // Update UI.
+    scene.bushes.berryText.setText(`Berries: ${scene.bushes.berries}`);
+
+    // Expire meals (rot old ones, despawn long-rotten ones).
+    const now = Date.now();
+    const { meals: updatedMeals, despawned } = updateMeals(
+      this.meals, now, CONFIG.eating.mealExpiryMs, CONFIG.eating.rottenDespawnMs
+    );
+    this.meals = updatedMeals;
+    for (const id of despawned) {
+      const sprite = this.mealSprites.get(id);
+      if (sprite) sprite.destroy();
+      this.mealSprites.delete(id);
+    }
+
+    const fresh = this.meals.filter((m) => !m.rotten).length;
+    if (this.mealText) this.mealText.setText(`Meals: ${fresh}`);
+    this.renderQueue();
+
+    // Draw sprites for meals created offline.
+    for (const meal of this.meals) {
+      if (!this.mealSprites.has(meal.id)) {
+        this.drawMeal(meal);
+      }
+    }
+
+    return completed;
   }
 
   loadSaveData(data) {

@@ -76,6 +76,9 @@ export default class DragManager {
     zone.setDepth(-1);
     zone.on('pointerdown', (pointer) => {
       if (this.selectedVillager == null) return;
+      // Meal drags are handled by EatSystem; don't treat them as tile taps.
+      const hits = scene.input.hitTestPointer(pointer);
+      if (hits.some((o) => o.getData && o.getData('mealId') != null)) return;
       const tileX = Math.floor((pointer.x - scene.originX) / TILE_SIZE);
       const tileY = Math.floor((pointer.y - scene.originY) / TILE_SIZE);
       scene.dropOffsets.set(this.selectedVillager, 0);
@@ -110,6 +113,9 @@ export default class DragManager {
 
   dropVillager(villagerId, tileX, tileY) {
     const scene = this.scene;
+    // If they were walking to a meal, interrupt the eat first.
+    if (scene.eat) scene.eat.interruptEat(villagerId);
+
     // Dropped on a bush? Assign.
     const bush = scene.bushes.getBushAt(tileX, tileY);
     if (bush) {
@@ -142,9 +148,12 @@ export default class DragManager {
     scene.villagers[idx] = moved;
     this.selectedVillager = null;
     scene.renderer.layoutVillagers();
-    // Resume wandering after a beat (assigned villagers don't wander).
+    // Reset to idle sprite (they were showing work anim).
+    if (scene.work) scene.work.playIdleAnim(villagerId);
+    // Resume wandering after a cooldown (3-10s random) so they don't
+    // look like they're running away immediately after being dropped.
     if (moved.state === 'idle') {
-      scene.wander.scheduleWander(villagerId, 1000);
+      scene.wander.scheduleWander(villagerId, 3000 + Math.random() * 7000);
     }
 
     // Save on move/unassign.
