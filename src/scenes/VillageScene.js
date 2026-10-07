@@ -4,6 +4,7 @@ import { createInitialVillagers, VILLAGER_SPRITES } from '../game/sim/villagers.
 import { CONFIG } from '../game/config.js';
 import VillagerRenderer from './controllers/VillagerRenderer.js';
 import MovementSystem from './controllers/MovementSystem.js';
+import BuildingSystem from './controllers/BuildingSystem.js';
 import DragManager from './controllers/DragManager.js';
 import WanderController from './controllers/WanderController.js';
 import BushSystem from './controllers/BushSystem.js';
@@ -75,6 +76,8 @@ export default class VillageScene extends Phaser.Scene {
       frameWidth: 48,
       frameHeight: 48,
     });
+    // House (blue, 2x2).
+    this.load.image('house_blue_01', 'serene_village/houses/house_blue_01.png');
   }
 
   create() {
@@ -162,6 +165,7 @@ export default class VillageScene extends Phaser.Scene {
     this.bushes = new BushSystem(this);
     this.cook = new CookSystem(this);
     this.eat = new EatSystem(this);
+    this.build = new BuildingSystem(this);
     this.drag = new DragManager(this);
     this.save = new SaveSystem(this);
     this.debug = new DebugConsole(this);

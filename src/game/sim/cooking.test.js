@@ -2,17 +2,17 @@ import { describe, it, expect } from 'vitest';
 import {
   canStartRecipe,
   startCooking,
-  cookingTick,
+  cookingProgress,
   queueAdd,
   queueRemove,
   queueNext,
 } from './cooking.js';
 
 const berryMeal = {
-  id: 'berry-meal', berriesCost: 2, cooksRequired: 1, cookTicks: 2, exp: 1,
+  id: 'berry-meal', berriesCost: 2, cooksRequired: 1, cookTimeSec: 5, exp: 1,
 };
 const heartyStew = {
-  id: 'hearty-stew', berriesCost: 4, cooksRequired: 2, cookTicks: 3, exp: 2,
+  id: 'hearty-stew', berriesCost: 4, cooksRequired: 2, cookTimeSec: 10, exp: 2,
 };
 
 describe('canStartRecipe', () => {
@@ -39,25 +39,39 @@ describe('startCooking', () => {
     const { job, berriesLeft } = startCooking(berryMeal, 10);
     expect(berriesLeft).toBe(8);
     expect(job.recipeId).toBe('berry-meal');
-    expect(job.ticksLeft).toBe(2);
+    expect(job.progressSec).toBe(0);
+    expect(job.totalSec).toBe(5);
   });
 });
 
-describe('cookingTick', () => {
-  it('decrements and completes', () => {
+describe('cookingProgress', () => {
+  it('advances and completes', () => {
     const { job } = startCooking(berryMeal, 10);
-    let r = cookingTick(job, 1, 1);
+    let r = cookingProgress(job, 3, 1, 1, 5);
     expect(r.done).toBe(false);
-    expect(r.job.ticksLeft).toBe(1);
-    r = cookingTick(r.job, 1, 1);
+    expect(r.paused).toBe(false);
+    expect(r.job.progressSec).toBe(3);
+    r = cookingProgress(r.job, 2, 1, 1, 5);
     expect(r.done).toBe(true);
   });
 
   it('pauses when cooks drop below requirement', () => {
     const { job } = startCooking(heartyStew, 10);
-    const r = cookingTick(job, 1, 2); // only 1 cook, need 2
+    const r = cookingProgress(job, 1, 1, 2, 10); // only 1 cook, need 2
     expect(r.done).toBe(false);
-    expect(r.job.ticksLeft).toBe(3); // unchanged
+    expect(r.paused).toBe(true);
+    expect(r.job.progressSec).toBe(0); // unchanged
+  });
+
+  it('resumes after pause', () => {
+    const { job } = startCooking(heartyStew, 10);
+    let r = cookingProgress(job, 5, 1, 2, 10); // paused
+    expect(r.paused).toBe(true);
+    r = cookingProgress(r.job, 5, 2, 2, 10); // restaffed
+    expect(r.paused).toBe(false);
+    expect(r.job.progressSec).toBe(5);
+    r = cookingProgress(r.job, 5, 2, 2, 10);
+    expect(r.done).toBe(true);
   });
 });
 
