@@ -178,6 +178,7 @@ export default class DebugConsole {
         this.log('/meal <berry|stew> - spawn a meal');
         this.log('/hungry - make all villagers hungry');
         this.log('/clearbuilding - remove all buildings');
+        this.log('/perf - show performance stats');
         this.log('/assignall - assign all villagers');
         this.log('/unassignall - unassign all');
         this.log('/tick - force production tick');
@@ -241,6 +242,22 @@ export default class DebugConsole {
         } else {
           this.log('Build system not ready');
         }
+        break;
+      }
+
+      case '/perf': {
+        const displayList = scene.children.list.length;
+        const tweens = scene.tweens.getTweens().length;
+        const timers = scene.time._active ? scene.time._active.length : 0;
+        const meals = scene.cook ? scene.cook.meals.length : 0;
+        const mealSprites = scene.cook ? scene.cook.mealSprites.size : 0;
+        const buildings = scene.build ? scene.build.buildings.length : 0;
+        this.log(`Display: ${displayList} objects`);
+        this.log(`Tweens: ${tweens} active`);
+        this.log(`Timers: ${timers} active`);
+        this.log(`Meals: ${meals} data, ${mealSprites} sprites`);
+        this.log(`Buildings: ${buildings}`);
+        this.log(`Villagers: ${scene.villagers.length}`);
         break;
       }
 

@@ -117,7 +117,11 @@ export default class WorkSystem {
     const v = scene.villagers.find((x) => x.id === villagerId);
     if (!v || !v.workDir) return;
     const sprite = scene.renderer.getSprite(villagerId);
-    if (sprite) sprite.play(`${v.spriteKey}_work_${v.workDir}`);
+    const key = `${v.spriteKey}_work_${v.workDir}`;
+    // Don't restart if already playing (prevents 1s stutter from syncCookAnims).
+    if (sprite && (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== key)) {
+      sprite.play(key);
+    }
   }
 
   /**
@@ -132,10 +136,10 @@ export default class WorkSystem {
     // Use directional idle if available, else fall back to base idle.
     const dirKey = v.workDir ? `${v.spriteKey}_idle_${v.workDir}` : null;
     const baseKey = `${v.spriteKey}_idle`;
-    if (dirKey && scene.anims.exists(dirKey)) {
-      sprite.play(dirKey);
-    } else {
-      sprite.play(baseKey);
+    const key = (dirKey && scene.anims.exists(dirKey)) ? dirKey : baseKey;
+    // Don't restart if already playing (prevents 1s stutter from syncCookAnims).
+    if (!sprite.anims.isPlaying || sprite.anims.currentAnim?.key !== key) {
+      sprite.play(key);
     }
   }
 

@@ -77,7 +77,7 @@ export default class BuildingSystem {
   }
 
   showBuildMenu() {
-    // Simple HTML overlay like the campfire queue.
+    // Match campfire menu style (monospace, dark, game-like).
     const overlay = document.createElement('div');
     overlay.id = 'build-menu-overlay';
     overlay.style.cssText =
@@ -85,9 +85,9 @@ export default class BuildingSystem {
       'z-index: 9999; display: flex; align-items: center; justify-content: center;';
     const dialog = document.createElement('div');
     dialog.style.cssText =
-      'background: #2a2a2a; border-radius: 12px; padding: 20px; ' +
-      'min-width: 250px; color: #fff;';
-    dialog.innerHTML = '<h3 style="margin: 0 0 12px 0;">Build</h3>';
+      'background: #2d2d2d; border-radius: 16px; padding: 20px; ' +
+      'min-width: 250px; color: #fff; font-family: Arial, sans-serif;';
+    dialog.innerHTML = '<div style="font-size: 18px; margin-bottom: 12px; text-align: center;">Build</div>';
     for (const typeId of Object.keys(BUILDING_TYPES)) {
       const type = BUILDING_TYPES[typeId];
       const row = document.createElement('div');
@@ -103,9 +103,13 @@ export default class BuildingSystem {
       };
       dialog.appendChild(row);
     }
-    const closeBtn = document.createElement('button');
+    const closeBtn = document.createElement('div');
     closeBtn.textContent = 'Close';
-    closeBtn.style.cssText = 'margin-top: 12px; padding: 8px 16px; cursor: pointer;';
+    closeBtn.style.cssText =
+      'margin-top: 12px; padding: 8px 16px; cursor: pointer; text-align: center; ' +
+      'background: #4e342e; border-radius: 8px;';
+    closeBtn.onmouseenter = () => closeBtn.style.background = '#5e423a';
+    closeBtn.onmouseleave = () => closeBtn.style.background = '#4e342e';
     closeBtn.onclick = () => document.body.removeChild(overlay);
     dialog.appendChild(closeBtn);
     overlay.appendChild(dialog);
@@ -282,7 +286,7 @@ export default class BuildingSystem {
     img.setScale(scale);
     img.setInteractive({ useHandCursor: true });
     img.setData('buildingId', building.id);
-    img.on('pointerdown', () => this.showPopup(building.id, px + w / 2, py));
+    img.on('pointerdown', () => this.showPopup(building.id, px + w / 2, py + h));
 
     const container = scene.add.container(0, 0, [img]);
     this.buildingSprites.set(building.id, container);
@@ -301,22 +305,38 @@ export default class BuildingSystem {
     this.closePopup();
     const popup = document.createElement('div');
     popup.style.cssText =
-      'position: fixed; z-index: 10000; background: #2a2a2a; ' +
-      'border: 1px solid #555; border-radius: 8px; padding: 8px; ' +
-      'display: flex; gap: 8px;';
+      'position: fixed; z-index: 10000; background: #2d2d2d; ' +
+      'border-radius: 10px; padding: 8px; ' +
+      'display: flex; gap: 6px; font-family: Arial, sans-serif; font-size: 12px;';
+    // Smaller game-style buttons.
     popup.innerHTML = `
-      <button id="bld-move" style="padding: 6px 12px; cursor: pointer;">Move</button>
-      <button id="bld-demolish" style="padding: 6px 12px; cursor: pointer; background: #c62828; color: white; border: none; border-radius: 4px;">Demolish</button>
+      <div id="bld-move" style="padding: 6px 12px; cursor: pointer; background: #5a5a5a; color: #fff; border-radius: 6px; text-align: center;">Move</div>
+      <div id="bld-demolish" style="padding: 6px 12px; cursor: pointer; background: #a03030; color: #fff; border-radius: 6px; text-align: center;">Demolish</div>
     `;
-    // Position near the building (convert world to screen).
+    // Position below the building. x,y is the bottom-center in world coords.
     const scene = this.scene;
-    const scale = scene.scale.zoom || 1;
-    popup.style.left = `${x * scale + 100}px`;
-    popup.style.top = `${y * scale + 100}px`;
+    const canvas = scene.game.canvas;
+    const rect = canvas.getBoundingClientRect();
+    // World to screen: camera is at (0,0) with zoom 1, so world = canvas pixels.
+    // Account for canvas CSS scaling (canvas.width vs rect.width).
+    const scaleX = rect.width / canvas.width;
+    const scaleY = rect.height / canvas.height;
+    const screenX = rect.left + x * scaleX;
+    const screenY = rect.top + y * scaleY + 8; // 8px gap below sprite
+    popup.style.left = `${screenX}px`;
+    popup.style.top = `${screenY}px`;
+    // Center horizontally via CSS transform.
+    popup.style.transform = 'translateX(-50%)';
     document.body.appendChild(popup);
 
-    popup.querySelector('#bld-move').onclick = () => this.startMove(buildingId);
-    popup.querySelector('#bld-demolish').onclick = () => this.demolish(buildingId);
+    const moveBtn = popup.querySelector('#bld-move');
+    const demolishBtn = popup.querySelector('#bld-demolish');
+    moveBtn.onmouseenter = () => moveBtn.style.background = '#6a6a6a';
+    moveBtn.onmouseleave = () => moveBtn.style.background = '#5a5a5a';
+    demolishBtn.onmouseenter = () => demolishBtn.style.background = '#b04040';
+    demolishBtn.onmouseleave = () => demolishBtn.style.background = '#a03030';
+    moveBtn.onclick = () => this.startMove(buildingId);
+    demolishBtn.onclick = () => this.demolish(buildingId);
 
     // Close on outside click. Store handler so we can remove it.
     const closeOnClick = (e) => {
