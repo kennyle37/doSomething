@@ -10,17 +10,31 @@
 /**
  * BFS from (fromX, fromY) to (toX, toY). Returns an array of {x, y} steps
  * (excluding the start, including the target), or null if unreachable.
- * Deterministic: neighbors are checked in a fixed order (right, left, down,
- * up), so ties resolve the same way every time.
+ * By default deterministic: neighbors are checked in a fixed order (right,
+ * left, down, up), so ties resolve the same way every time. Pass
+ * randomize=true for varied paths (villagers don't all take the same route).
  */
-export function findPath(fromX, fromY, toX, toY, width, height, blockedTiles) {
+export function findPath(fromX, fromY, toX, toY, width, height, blockedTiles, randomize = false) {
   if (fromX === toX && fromY === toY) return [];
   const key = (x, y) => `${x},${y}`;
   if (blockedTiles.has(key(toX, toY))) return null;
 
   const visited = new Set([key(fromX, fromY)]);
+  // queue of {x, y, path}
   const queue = [{ x: fromX, y: fromY, path: [] }];
-  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const dirs = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ];
+  // Shuffle for varied paths (Fisher-Yates).
+  if (randomize) {
+    for (let i = dirs.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+    }
+  }
 
   while (queue.length > 0) {
     const { x, y, path } = queue.shift();
@@ -36,7 +50,7 @@ export function findPath(fromX, fromY, toX, toY, width, height, blockedTiles) {
       queue.push({ x: nx, y: ny, path: newPath });
     }
   }
-  return null;
+  return null; // unreachable
 }
 
 /**
@@ -47,7 +61,12 @@ export function findReachable(fromX, fromY, width, height, blockedTiles) {
   const key = (x, y) => `${x},${y}`;
   const reached = new Set([key(fromX, fromY)]);
   const queue = [{ x: fromX, y: fromY }];
-  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const dirs = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ];
 
   while (queue.length > 0) {
     const { x, y } = queue.shift();

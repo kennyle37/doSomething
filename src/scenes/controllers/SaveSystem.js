@@ -77,7 +77,7 @@ export default class SaveSystem {
     scene.bushes.berries = save.berries;
     scene.bushes.berryText.setText(`Berries: ${save.berries}`);
 
-    // Restore cooking state.
+    // Restore cooking state (queue, active job, meals on ground).
     if (scene.cook && save.cooking) {
       scene.cook.loadSaveData(save.cooking);
     }
@@ -107,6 +107,52 @@ export default class SaveSystem {
       scene.bushes.berries += offline;
       scene.bushes.berryText.setText(`Berries: ${scene.bushes.berries}`);
     }
+
+    // Simulate offline progress for ALL systems that support it.
+    // Convention: any system with time-based progress implements
+    // Offline simulation: auto-discover all systems with time-based progress.
+    // Any controller on the scene that implements
+    //   simulateOffline(elapsedMs, saveTimestamp)
+    // gets called automatically, in dependency order. New timed systems
+    // just implement the method; no SaveSystem changes needed.
+    //
+    // Order matters: berries -> cooking -> eating (each feeds the next).
+    // Systems define `offlinePriority` (lower runs first). Default is 100.
+    const elapsedMs = Date.now() - save.timestamp;
+    const toastParts = [];
+
+    // Berries are already added above; include in toast.
+    if (offline > 0) toastParts.push(`+${offline} berries`);
+
+    // Auto-discover systems with simulateOffline.
+    const offlineSystems = [];
+    for (const key of Object.keys(scene)) {
+      const sys = scene[key];
+      if (sys && typeof sys.simulateOffline === 'function' && key !== 'save') {
+        offlineSystems.push({
+          key,
+          system: sys,
+          priority: sys.offlinePriority ?? 100,
+        });
+      }
+    }
+    offlineSystems.sort((a, b) => a.priority - b.priority);
+
+    for (const { key, system } of offlineSystems) {
+      const result = system.simulateOffline(elapsedMs, save.timestamp);
+      // Each system formats its own toast part via offlineToast(result).
+      if (typeof system.offlineToast === 'function') {
+        const part = system.offlineToast(result);
+        if (part) toastParts.push(part);
+      } else if (typeof result === 'number' && result > 0) {
+        toastParts.push(`+${result} ${key}`);
+      }
+    }
+
+    if (toastParts.length > 0) {
+      this.showToast(`While you were away: ${toastParts.join(', ')}`);
+    }
+
     return offline;
   }
 
@@ -115,10 +161,7 @@ export default class SaveSystem {
    * Saves a fresh timestamp so we don't double-count.
    */
   checkOfflineProgress() {
-    const offline = this.loadFromStorage();
-    if (offline > 0) {
-      this.showToast(`While you were away: +${offline} berries`);
-    }
+    this.loadFromStorage(); // toast is shown inside if there's anything
     // Re-save so the timestamp is fresh.
     this.saveToStorage();
   }

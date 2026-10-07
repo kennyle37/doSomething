@@ -3,11 +3,13 @@ import { createGrid } from '../game/sim/grid.js';
 import { createInitialVillagers, VILLAGER_SPRITES } from '../game/sim/villagers.js';
 import { CONFIG } from '../game/config.js';
 import VillagerRenderer from './controllers/VillagerRenderer.js';
+import MovementSystem from './controllers/MovementSystem.js';
 import DragManager from './controllers/DragManager.js';
 import WanderController from './controllers/WanderController.js';
 import BushSystem from './controllers/BushSystem.js';
 import SaveSystem from './controllers/SaveSystem.js';
 import CookSystem from './controllers/CookSystem.js';
+import EatSystem from './controllers/EatSystem.js';
 import WorkSystem from './controllers/WorkSystem.js';
 import DebugConsole from './controllers/DebugConsole.js';
 import {
@@ -83,10 +85,18 @@ export default class VillageScene extends Phaser.Scene {
     this.originY = (this.scale.height - this.grid.height * TILE_SIZE) / 2;
 
     this.blockedTiles = new Set();
+    // Pre-block known asset tiles so villagers never spawn on them.
+    // (BushSystem/CookSystem setup re-add these; Set dedupes.)
+    this.blockedTiles.add(
+      `${CONFIG.cooking.campfire.tileX},${CONFIG.cooking.campfire.tileY}`
+    );
+    for (const b of CONFIG.bushes) {
+      this.blockedTiles.add(`${b.tileX},${b.tileY}`);
+    }
     // villager id -> x-offset within tile at drop time. Orders clusters
     // left-to-right by where you actually dropped them.
     this.dropOffsets = new Map();
-    this.villagers = createInitialVillagers();
+    this.villagers = createInitialVillagers(Math.random, this.blockedTiles);
 
     for (const tile of this.grid.tiles) {
       const px = this.originX + tile.x * TILE_SIZE + TILE_SIZE / 2;
@@ -146,16 +156,19 @@ export default class VillageScene extends Phaser.Scene {
 
     // Controllers, in dependency order.
     this.renderer = new VillagerRenderer(this);
+    this.movement = new MovementSystem(this);
     this.wander = new WanderController(this);
     this.work = new WorkSystem(this);
     this.bushes = new BushSystem(this);
     this.cook = new CookSystem(this);
+    this.eat = new EatSystem(this);
     this.drag = new DragManager(this);
     this.save = new SaveSystem(this);
     this.debug = new DebugConsole(this);
 
     this.bushes.setup();
     this.cook.setup();
+    this.eat.setup();
     this.renderer.drawVillagers();
     this.drag.setupInput();
     this.drag.setupTileTap();

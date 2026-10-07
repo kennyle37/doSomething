@@ -26,7 +26,7 @@ export const CONFIG = {
 
   // Wandering: ms per tile walked, base cooldown, per-tile cooldown.
   wander: {
-    msPerTile: 1000,
+    msPerTile: 2000,
     baseCooldownMs: 5000,
     perTileCooldownMs: 3000,
     initialDelayMinMs: 2000,
@@ -37,6 +37,13 @@ export const CONFIG = {
   save: {
     autoSaveMs: 10000, // auto-save every 10 seconds
     maxOfflineMs: 8 * 3600 * 1000, // 8 hour offline cap
+  },
+
+  // Eating (Phase 2).
+  eating: {
+    baseHungerDrain: 0.5, // per 10s tick; avg villager empties in ~33h
+    hungerThreshold: 30, // below this = hungry
+    expPerMeal: { 'berry-meal': 1, 'hearty-stew': 2 },
   },
 
   // Cooking (Phase 2).
@@ -53,7 +60,7 @@ export const CONFIG = {
         name: 'Berry Meal',
         berriesCost: 2,
         cooksRequired: 1,
-        cookTicks: 2, // 20s at 10s tick
+        cookTimeSec: 5,
         exp: 1,
       },
       {
@@ -61,7 +68,7 @@ export const CONFIG = {
         name: 'Hearty Stew',
         berriesCost: 4,
         cooksRequired: 2,
-        cookTicks: 3, // 30s at 10s tick
+        cookTimeSec: 10,
         exp: 2,
       },
     ],

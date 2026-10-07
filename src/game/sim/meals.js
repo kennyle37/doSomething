@@ -18,7 +18,24 @@ export function createMeal(recipeId, tileX, tileY, offsetX, offsetY, now = Date.
     droppedAt: now,
     rotten: false,
     rottenAt: null,
+    reservedBy: null, // villager id currently walking to eat this, or null
   };
+}
+
+/**
+ * Reserve a meal for a villager. Returns the reserved meal, or null if
+ * it can't be reserved (rotten or already claimed).
+ */
+export function reserveMeal(meal, villagerId) {
+  if (meal.rotten || meal.reservedBy != null) return null;
+  return { ...meal, reservedBy: villagerId };
+}
+
+/**
+ * Release a meal reservation (villager interrupted, died, or arrived).
+ */
+export function releaseMeal(meal) {
+  return { ...meal, reservedBy: null };
 }
 
 /**
@@ -88,3 +105,4 @@ export function expForMeal(recipeId, recipes, isBreakfast = false) {
   if (!recipe) return 0;
   return recipe.exp + (isBreakfast ? 1 : 0);
 }
+

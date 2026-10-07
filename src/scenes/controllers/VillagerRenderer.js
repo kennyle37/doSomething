@@ -114,8 +114,9 @@ export default class VillagerRenderer {
       );
       const offsets = getClusterOffsets(group.length);
       group.forEach((v, i) => {
-        // Wandering villagers are positioned by their tween, not the layout.
-        if (scene.wander.tweens.has(v.id)) return;
+        // Villagers with active movement are positioned by MovementSystem,
+        // not the layout. Otherwise the layout fights the walk and causes jerks.
+        if (scene.movement && scene.movement.isMoving(v.id)) return;
         const sprite = this.sprites.get(v.id);
         // Assigned workers use their work offset (from the drop position),
         // not the cluster layout.
