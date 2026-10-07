@@ -651,6 +651,11 @@ export default class CookSystem {
 
   loadSaveData(data) {
     if (!data) return;
+    // Clear existing sprites first (prevents duplicates on reload/visibility).
+    for (const [id, sprite] of this.mealSprites) {
+      if (sprite) sprite.destroy();
+    }
+    this.mealSprites.clear();
     this.queue = data.queue || [];
     this.activeJob = data.activeJob || null;
     this.meals = data.meals || [];

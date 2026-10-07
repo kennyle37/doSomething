@@ -177,6 +177,7 @@ export default class DebugConsole {
         this.log('/berries <n> - set berry count');
         this.log('/meal <berry|stew> - spawn a meal');
         this.log('/hungry - make all villagers hungry');
+        this.log('/clearbuilding - remove all buildings');
         this.log('/assignall - assign all villagers');
         this.log('/unassignall - unassign all');
         this.log('/tick - force production tick');
@@ -226,6 +227,20 @@ export default class DebugConsole {
           }
         }
         this.log('All villagers are now hungry');
+        break;
+      }
+
+      case '/clearbuilding': {
+        if (scene.build) {
+          const count = scene.build.buildings.length;
+          // Demolish all (frees tiles, destroys sprites, saves).
+          for (const b of [...scene.build.buildings]) {
+            scene.build.demolish(b.id);
+          }
+          this.log(`Cleared ${count} buildings`);
+        } else {
+          this.log('Build system not ready');
+        }
         break;
       }
 
